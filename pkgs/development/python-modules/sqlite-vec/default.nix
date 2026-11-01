@@ -67,6 +67,9 @@ buildPythonPackage rec {
     sqlite-vec-c
   ];
 
+  # numpy is only imported opportunistically
+  pythonRemoveDeps = [ "numpy" ];
+
   optional-dependencies = {
     numpy = [
       numpy
