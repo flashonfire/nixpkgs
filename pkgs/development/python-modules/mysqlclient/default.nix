@@ -19,6 +19,11 @@ buildPythonPackage (finalAttrs: {
     hash = "sha256-15FN6XY8dcw51YNBALD6JQD/nejLuMyDZx9uHK6NU1k=";
   };
 
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace-fail 'f"pkg-config' 'f"$PKG_CONFIG'
+  '';
+
   build-system = [ setuptools ];
 
   nativeBuildInputs = [ pkg-config ];
