@@ -32,6 +32,7 @@
   MPISupport ? false,
   mpi,
   buildDocs ? false,
+  buildPackages,
   targetPackages,
 
   # tests.cudaAvailable:
@@ -550,6 +551,35 @@ buildPythonPackage.override { inherit stdenv; } (finalAttrs: {
     # Unbreaks version discovery in enable_language(CUDA) when wrapping nvcc with ccache
     # Cf. https://gitlab.kitware.com/cmake/cmake/-/issues/26363
     (lib.cmakeFeature "CMAKE_CUDA_COMPILER_TOOLKIT_VERSION" cudaPackages.cudaMajorMinorVersion)
+  ]
+  ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
+    # Same version as the vendored protobuf
+    (lib.cmakeFeature "CAFFE2_CUSTOM_PROTOC_EXECUTABLE" (
+      lib.getExe' buildPackages.protobuf_21 "protoc"
+    ))
+    # The vendored sleef generates sources using helpers built for the build platform
+    (lib.cmakeFeature "NATIVE_BUILD_DIR" "${buildPackages.stdenv.mkDerivation {
+      pname = "torch-sleef-native-tools";
+      inherit (finalAttrs) version src;
+      sourceRoot = "${finalAttrs.src.name}/third_party/sleef";
+
+      nativeBuildInputs = [
+        buildPackages.cmake
+        buildPackages.ninja
+      ];
+
+      cmakeFlags = [
+        (lib.cmakeBool "SLEEF_BUILD_GNUABI_LIBS" false)
+        (lib.cmakeBool "SLEEF_BUILD_TESTS" false)
+      ];
+
+      installPhase = ''
+        runHook preInstall
+        mkdir -p $out
+        cp -r bin $out
+        runHook postInstall
+      '';
+    }}")
   ];
 
   preBuild = ''
