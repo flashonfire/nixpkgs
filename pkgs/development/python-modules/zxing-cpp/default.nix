@@ -1,5 +1,6 @@
 {
   lib,
+  stdenv,
   buildPythonPackage,
   cmake,
   ninja,
@@ -26,8 +27,14 @@ buildPythonPackage {
     nanobind_DIR = "${nanobind}/${python.sitePackages}/nanobind/cmake";
   };
 
+  # Stub generation imports the freshly built module
+  postPatch = lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+    sed -i -e '/^nanobind_add_stub(/,/^)/d' -e '/zxingcpp\.pyi$/d' CMakeLists.txt
+  '';
+
   cmakeFlags = [
     (lib.cmakeBool "ZXING_USE_BUNDLED_ZINT" false)
+    (lib.cmakeFeature "Python_INCLUDE_DIR" "${python}/include/${python.libPrefix}")
   ];
 
   build-system = [
