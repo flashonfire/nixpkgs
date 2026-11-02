@@ -108,6 +108,8 @@ optionals noSysDirs (
 # LoongArch: fix miscompile of both_non_zero{,_subreg} when operands[0] == operands[2]
 # See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=127153
 ++ optional is16 ./16/loongarch-fix-miscompile-of-both_non_zero.patch
+# Target libraries are built with _FORTIFY_SOURCE, tripping libgomp's -Werror
+++ optional (is16 && !buildIsHost) ../ng/16/libgomp/uid-buffer-size.patch
 
 ## 2. Patches relevant on specific platforms ####################################
 
