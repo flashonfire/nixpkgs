@@ -60,6 +60,12 @@ buildPythonPackage (finalAttrs: {
     hash = "sha256-NpW6QrtmG/2X6AVWBw0W+P38ZcXOfESYAdy8N6VMirc=";
   };
 
+  # setuptools already adds the host python include dir
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace-fail 'get_path("include"),' ""
+  '';
+
   build-system = [
     cymem
     cython
