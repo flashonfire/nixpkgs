@@ -18642,6 +18642,10 @@ with self;
       url = "mirror://cpan/authors/id/I/IS/ISHIGAKI/JSON-PP-4.16.tar.gz";
       hash = "sha256-i8LxYrr8QmRcSJkFrXJUDw08KEs2DJYpkJUYPDDMl4k=";
     };
+    # The bundled JSON::PP needs XS modules, which miniperl can't load when cross compiling
+    postPatch = ''
+      substituteInPlace Makefile.PL --replace-fail "use lib qw( ./lib );" ""
+    '';
     meta = {
       description = "JSON::XS compatible pure-Perl module";
       license = with lib.licenses; [
