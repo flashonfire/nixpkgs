@@ -4,14 +4,13 @@
   fetchFromGitHub,
   fetchNpmDeps,
   nixosTests,
-  stdenv,
   rustPlatform,
   npmHooks,
   nodejs,
   esbuild,
   brotli,
   zstd,
-  cargo,
+  pkgsBuildBuild,
   bashInteractive,
   llvmPackages,
   nix-update-script,
@@ -50,7 +49,8 @@ buildGo127Module (finalAttrs: {
     npmHooks.npmConfigHook
 
     rustPlatform.cargoSetupHook
-    cargo
+    # Rust is only used to build wasm, which the cross toolchain can't target
+    pkgsBuildBuild.cargo
     bashInteractive
     llvmPackages.lld
   ];
@@ -61,8 +61,7 @@ buildGo127Module (finalAttrs: {
     "-s"
     "-w"
     "-X=github.com/TecharoHQ/anubis.Version=v${finalAttrs.version}"
-  ]
-  ++ lib.optionals stdenv.hostPlatform.isLinux [ "-extldflags=-static" ];
+  ];
 
   overrideModAttrs = oa: {
     nativeBuildInputs = lib.subtractLists [
@@ -83,7 +82,7 @@ buildGo127Module (finalAttrs: {
     if [[ ! $name =~ go-modules ]]; then
       # https://github.com/TecharoHQ/anubis/blob/main/xess/build.sh
       npx postcss ./xess/xess.css -o xess/xess.min.css
-      go generate ./...
+      CC= GOOS= GOARCH= go generate ./...
       ./wasm/scripts/build_wasm.sh
       ./wasm/scripts/build_wasm2js.sh
       ./web/build.sh
