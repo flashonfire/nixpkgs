@@ -171,6 +171,7 @@ stdenv.mkDerivation (finalAttrs: {
   env.ESBUILD_BINARY_PATH = lib.getExe esbuild';
   # fix for node-gyp, see https://github.com/nodejs/node-gyp/issues/1191#issuecomment-301243919
   env.npm_config_nodedir = nodejs;
+  env.npm_config_arch = stdenv.hostPlatform.node.arch;
   # Prevent Python (via node-gyp) from writing bytecode to ensure build determinism
   env.PYTHONDONTWRITEBYTECODE = "1";
 
@@ -180,6 +181,15 @@ stdenv.mkDerivation (finalAttrs: {
     pnpm --filter immich... --filter immich-web... --filter @immich/plugin-core... build
 
     runHook postBuild
+  '';
+
+  # sharp's build calls these tools unprefixed
+  preInstall = lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+    mkdir -p "$TMPDIR/bin"
+    ln -s "$(type -P "$PKG_CONFIG")" "$TMPDIR/bin/pkg-config"
+    ln -s "$(type -P "$READELF")" "$TMPDIR/bin/readelf"
+    ln -s "$(type -P ${stdenv.cc.targetPrefix}c++filt)" "$TMPDIR/bin/c++filt"
+    export PATH="$TMPDIR/bin:$PATH"
   '';
 
   installPhase = ''
