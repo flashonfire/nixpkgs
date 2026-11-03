@@ -36,7 +36,12 @@ buildPgrxExtension (finalAttrs: {
   ];
 
   patches =
-    lib.optionals (lib.versionOlder rustc.llvm.version "22.0.0" && stdenv.hostPlatform.isx86_64)
+    # pgrx_embed is built for the build platform
+    lib.optionals
+      (
+        lib.versionOlder rustc.llvm.version "22.0.0"
+        && (stdenv.hostPlatform.isx86_64 || stdenv.buildPlatform.isx86_64)
+      )
       [
         # Due to a bug in LLVM 21, build fails on x86_64 with:
         # `rustc-LLVM ERROR: Cannot select: intrinsic %llvm.x86.avx512.vpdpbusd.512`.
