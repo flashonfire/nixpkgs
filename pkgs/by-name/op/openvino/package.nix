@@ -1,6 +1,7 @@
 {
   lib,
   stdenv,
+  buildPackages,
   fetchFromGitHub,
   cudaSupport ? opencv.cudaSupport or false,
 
@@ -36,20 +37,24 @@ let
     getLib
     ;
 
-  python = python3Packages.python.withPackages (
-    ps: with ps; [
-      cython
-      distutils
-      # pybind11 3.1.0 runs precall hooks before argument conversion, so OpenVINO's
-      # conditional_keep_alive fires for rejected overloads and breaks the ov.Tensor
-      # bindings. Remove this pin as soon as
-      # https://github.com/pybind/pybind11/pull/6183 is released.
-      pybind11_3_0
-      setuptools
-      sphinx
-      wheel
-    ]
-  );
+  pythonWithPackages =
+    python:
+    python.withPackages (
+      ps: with ps; [
+        cython
+        distutils
+        # pybind11 3.1.0 runs precall hooks before argument conversion, so OpenVINO's
+        # conditional_keep_alive fires for rejected overloads and breaks the ov.Tensor
+        # bindings. Remove this pin as soon as
+        # https://github.com/pybind/pybind11/pull/6183 is released.
+        pybind11_3_0
+        setuptools
+        sphinx
+        wheel
+      ]
+    );
+  inherit (python3Packages) python;
+  pythonOnBuild = pythonWithPackages python.pythonOnBuildForHost;
 
 in
 
@@ -72,6 +77,10 @@ stdenv.mkDerivation (finalAttrs: {
     "python"
   ];
 
+  depsBuildBuild = lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
+    buildPackages.stdenv.cc
+  ];
+
   nativeBuildInputs = [
     # order matters here: autoAddDriverRunpath must run after autoPatchelfHook, otherwise the RUNPATH will end up being wrong
     autoPatchelfHook
@@ -82,11 +91,22 @@ stdenv.mkDerivation (finalAttrs: {
     libarchive
     patchelf
     pkg-config
-    python
+    pythonOnBuild
   ]
   ++ lib.optionals cudaSupport [
     cudaPackages.cuda_nvcc
   ];
+
+  # Build time tools must run on the build platform
+  postPatch = lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+    substituteInPlace cmake/developer_package/cross_compile/native_compile.cmake \
+      --replace-fail '    # if env has CMAKE_TOOLCHAIN_FILE' \
+        '    list(APPEND cmake_env CC=$ENV{CC_FOR_BUILD} CXX=$ENV{CXX_FOR_BUILD})
+        # if env has CMAKE_TOOLCHAIN_FILE'
+    substituteInPlace thirdparty/dependencies.cmake \
+      --replace-fail 'set(flatbuffers_COMPILER flatbuffers::flatc)' \
+        'set(flatbuffers_COMPILER ${lib.getExe' buildPackages.flatbuffers "flatc"})'
+  '';
 
   patches = [
     # https://aur.archlinux.org/cgit/aur.git/tree/010-openvino-change-install-paths.patch?h=openvino
@@ -103,7 +123,7 @@ stdenv.mkDerivation (finalAttrs: {
     "-DCMAKE_PREFIX_PATH:PATH=${placeholder "out"}"
     "-DOpenCV_DIR=${getLib opencv}/lib/cmake/opencv4/"
     "-DProtobuf_LIBRARIES=${getLib protobuf}/lib/libprotobuf${stdenv.hostPlatform.extensions.sharedLibrary}"
-    "-DPython_EXECUTABLE=${python.interpreter}"
+    "-DPython_EXECUTABLE=${pythonOnBuild.interpreter}"
 
     # OV_CPACK_* variables are normally set by packaging macros that only run
     # when CPACK_GENERATOR matches a known type to upstream.
@@ -144,7 +164,17 @@ stdenv.mkDerivation (finalAttrs: {
     (cmakeBool "ENABLE_SYSTEM_SNAPPY" true)
     (cmakeBool "ENABLE_SYSTEM_TBB" true)
     (cmakeBool "ENABLE_ARM_COMPUTE_CMAKE" true)
+  ]
+  # The build platform interpreter would report its own headers and library
+  ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
+    (cmakeFeature "Python_INCLUDE_DIR" "${python}/include/${python.libPrefix}")
+    (cmakeFeature "Python_LIBRARY" "${python}/lib/lib${python.libPrefix}${stdenv.hostPlatform.extensions.sharedLibrary}")
   ];
+
+  # The python setup hook makes sysconfig describe the host platform
+  preConfigure = lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+    appendToVar cmakeFlags "-DPYTHON_MODULE_EXTENSION=$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX"))')"
+  '';
 
   # src/graph/src/plugins/intel_gpu/src/graph/include/reorder_inst.h:24:8: error: type 'struct typed_program_node' violates the C++ One Definition Rule [-Werror=odr]
   env.NIX_CFLAGS_COMPILE = "-Wno-odr";
@@ -158,6 +188,7 @@ stdenv.mkDerivation (finalAttrs: {
     ocl-icd
     opencv
     pugixml
+    python
     snappy
     onetbb
   ]
