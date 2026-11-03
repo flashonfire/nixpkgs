@@ -105,6 +105,9 @@ let
     ;
   inherit (lib.trivial) flip;
 
+  inherit (pythonPackages) python;
+  pythonOnBuild = python.pythonOnBuildForHost;
+
   version = "4.13.0";
 
   # It's necessary to consistently use backendStdenv when building with CUDA
@@ -471,9 +474,9 @@ effectiveStdenv.mkDerivation {
   ]
   ++ optionals enablePython (
     [
-      pythonPackages.pip
-      pythonPackages.wheel
-      pythonPackages.setuptools
+      pythonOnBuild.pkgs.pip
+      pythonOnBuild.pkgs.wheel
+      pythonOnBuild.pkgs.setuptools
     ]
     ++ optionals (effectiveStdenv.hostPlatform == effectiveStdenv.buildPlatform) [
       pythonPackages.pythonImportsCheckHook
@@ -568,6 +571,16 @@ effectiveStdenv.mkDerivation {
   ]
   ++ optionals enablePython [
     (cmakeOptionType "path" "OPENCV_PYTHON_INSTALL_PATH" pythonPackages.python.sitePackages)
+  ]
+  # OpenCV can't probe the target python when cross compiling
+  ++ optionals (enablePython && effectiveStdenv.buildPlatform != effectiveStdenv.hostPlatform) [
+    (cmakeOptionType "path" "PYTHON3_INCLUDE_DIR" "${python}/include/${python.libPrefix}")
+    (cmakeOptionType "filepath" "PYTHON3_LIBRARY"
+      "${python}/lib/lib${python.libPrefix}${effectiveStdenv.hostPlatform.extensions.sharedLibrary}"
+    )
+    (cmakeOptionType "path" "PYTHON3_NUMPY_INCLUDE_DIRS"
+      "${pythonPackages.numpy}/${python.sitePackages}/numpy/_core/include"
+    )
   ]
   ++ optionals (enabledModules != [ ]) [
     (cmakeFeature "BUILD_LIST" (concatStringsSep "," enabledModules))
