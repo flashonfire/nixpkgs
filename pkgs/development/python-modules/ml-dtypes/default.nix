@@ -2,6 +2,7 @@
   lib,
   buildPythonPackage,
   fetchFromGitHub,
+  python,
 
   # build-system
   cmake,
@@ -35,9 +36,14 @@ buildPythonPackage (finalAttrs: {
   build-system = [
     cmake
     ninja
+    numpy
     scikit-build-core
   ];
   dontUseCmakeConfigure = true;
+
+  cmakeFlags = [
+    (lib.cmakeFeature "Python_INCLUDE_DIR" "${python}/include/${python.libPrefix}")
+  ];
 
   dependencies = [ numpy ];
 
