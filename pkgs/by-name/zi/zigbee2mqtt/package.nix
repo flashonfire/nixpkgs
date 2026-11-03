@@ -1,9 +1,9 @@
 {
   lib,
   stdenv,
+  buildPackages,
   fetchFromGitHub,
   nodejs,
-  npmHooks,
   pnpm_10,
   fetchPnpmDeps,
   pnpmConfigHook,
@@ -38,12 +38,15 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     nodejs
-    npmHooks.npmInstallHook
+    (buildPackages.npmHooks.override { inherit nodejs; }).npmInstallHook
     pnpmConfigHook
     pnpm_10
   ];
 
-  buildInputs = lib.optionals withSystemd [
+  buildInputs = [
+    nodejs
+  ]
+  ++ lib.optionals withSystemd [
     systemdMinimal
   ];
 
@@ -60,6 +63,13 @@ stdenv.mkDerivation (finalAttrs: {
     # Clean up broken symlinks left behind by `pnpm prune`
     # https://github.com/pnpm/pnpm/issues/3645
     find node_modules -xtype l -delete
+    # Shims pointing at the build directory and build platform node
+    find node_modules -name .bin -type d -prune -exec rm -r {} +
+  '';
+
+  # pnpmConfigHook patched these for the build platform
+  postInstall = ''
+    patchShebangs --host --update "$out/lib/node_modules"
   '';
 
   dontNpmPrune = true;
