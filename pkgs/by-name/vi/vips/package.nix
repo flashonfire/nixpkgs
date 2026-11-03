@@ -93,6 +93,7 @@ stdenv.mkDerivation (finalAttrs: {
   ]
   ++ lib.optionals withDevDoc [
     gi-docgen
+    python3
   ];
 
   buildInputs = [
