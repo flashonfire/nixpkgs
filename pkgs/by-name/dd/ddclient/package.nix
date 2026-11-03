@@ -1,5 +1,6 @@
 {
   lib,
+  buildPackages,
   fetchFromGitHub,
   perlPackages,
   autoreconfHook,
@@ -8,7 +9,8 @@
 }:
 
 let
-  myPerl = perl.withPackages (ps: [ ps.JSONPP ]);
+  perlWithPackages = perl: perl.withPackages (ps: [ ps.JSONPP ]);
+  myPerl = perlWithPackages perl;
 in
 perlPackages.buildPerlPackage rec {
   pname = "ddclient";
@@ -29,7 +31,6 @@ perlPackages.buildPerlPackage rec {
 
   nativeBuildInputs = [
     autoreconfHook
-    curl
   ];
 
   buildInputs = [
@@ -38,11 +39,15 @@ perlPackages.buildPerlPackage rec {
 
   strictDeps = true;
 
+  configureFlags = [
+    # configure runs perl to check its version and modules
+    "--with-perl=${lib.getExe (perlWithPackages buildPackages.perl)}"
+    "--with-curl=${lib.getExe curl}"
+  ];
+
   # Prevent ddclient from picking up build time perl which is implicitly added
   # by buildPerlPackage.
-  configureFlags = [
-    "--with-perl=${lib.getExe myPerl}"
-  ];
+  makeFlags = [ "PERL=${lib.getExe myPerl}" ];
 
   installPhase = ''
     runHook preInstall
