@@ -29,10 +29,10 @@
 
 {
   lib,
+  buildPackages,
   pkg-config,
   rustPlatform,
   stdenv,
-  writeShellScriptBin,
 }:
 
 # The idea behind: Use it mostly like rustPlatform.buildRustPackage and so
@@ -91,7 +91,12 @@ lib.extendMkDerivation {
       "The parameter useFakeRustfmt is set to false, but rustfmt is not included in nativeBuildInputs. Either set useFakeRustfmt to true or add rustfmt from nativeBuildInputs.";
 
     let
-      fakeRustfmt = writeShellScriptBin "rustfmt" ''
+      isCross = stdenv.buildPlatform != stdenv.hostPlatform;
+      # cargo-pgrx builds pgrx_embed for the build platform and looks for it outside of target/<triple>
+      crossEnv = lib.optionalString isCross "${buildPackages.rust.envVars.setEnv} env -u CARGO_BUILD_TARGET ";
+      crossTarget = lib.optionalString isCross " --target ${stdenv.hostPlatform.rust.rustcTarget}";
+
+      fakeRustfmt = buildPackages.writeShellScriptBin "rustfmt" ''
         exit 0
       '';
       maybeDebugFlag = lib.optionalString (buildType != "release") "--debug";
@@ -105,7 +110,10 @@ lib.extendMkDerivation {
       preBuildAndTest = ''
         export PGRX_HOME="$(mktemp -d)"
         export PGDATA="$PGRX_HOME/data-${pgrxPostgresMajor}/"
-        cargo-pgrx pgrx init "--pg${pgrxPostgresMajor}" ${postgresql.pg_config}/bin/pg_config
+        cargo-pgrx pgrx init ${lib.optionalString isCross "--no-run "}"--pg${pgrxPostgresMajor}" ${postgresql.pg_config}/bin/pg_config
+      ''
+      # The test cluster can't be started when cross compiling, and tests don't run then anyway
+      + lib.optionalString (!isCross) ''
 
         # unix sockets work in sandbox, too.
         export PGHOST="$(mktemp -d)"
@@ -147,11 +155,11 @@ lib.extendMkDerivation {
 
         PGRX_BUILD_FLAGS="--frozen -j $NIX_BUILD_CORES ${builtins.concatStringsSep " " cargoBuildFlags}" \
         ${lib.optionalString stdenv.hostPlatform.isDarwin ''RUSTFLAGS="''${RUSTFLAGS:+''${RUSTFLAGS} }-Clink-args=-Wl,-undefined,dynamic_lookup"''} \
-        cargo pgrx package \
+        ${crossEnv}cargo pgrx package \
           ${cargoPgrxFlags'} \
           --pg-config ${postgresql.pg_config}/bin/pg_config \
           ${maybeDebugFlag} \
-          --features "${builtins.concatStringsSep " " buildFeatures}" \
+          --features "${builtins.concatStringsSep " " buildFeatures}"${crossTarget} \
           --out-dir "$out"
 
         ${maybeLeaveBuildAndTestSubdir}
