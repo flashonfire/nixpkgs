@@ -40,6 +40,8 @@ let
   effectiveStdenv = if cudaSupport then cudaPackages.backendStdenv else inputs.stdenv;
   inherit (cudaPackages) cuda_nvcc;
 
+  pythonOnBuild = python3Packages.python.pythonOnBuildForHost;
+
   cudaArchitecturesString = cudaPackages.flags.cmakeCudaArchitecturesString;
 
   # TODO: update the following dependencies according to:
@@ -160,16 +162,16 @@ effectiveStdenv.mkDerivation (finalAttrs: {
   '';
 
   postBuild = lib.optionalString pythonSupport ''
-    ${python3Packages.python.interpreter} ../setup.py bdist_wheel
+    ${pythonOnBuild.interpreter} ../setup.py bdist_wheel
   '';
 
   nativeBuildInputs = [
     cmake
     pkg-config
-    python3Packages.python
+    pythonOnBuild
   ]
   ++ lib.optionals pythonSupport (
-    with python3Packages;
+    with pythonOnBuild.pkgs;
     [
       pip
       python
@@ -327,6 +329,16 @@ effectiveStdenv.mkDerivation (finalAttrs: {
   ++ lib.optionals pythonSupport [
     (lib.cmakeBool "onnxruntime_ENABLE_PYTHON" true)
   ]
+  # The build platform interpreter can't import the target numpy
+  ++ lib.optionals (pythonSupport && effectiveStdenv.buildPlatform != effectiveStdenv.hostPlatform) (
+    let
+      inherit (python3Packages) python numpy;
+    in
+    [
+      (lib.cmakeFeature "Python_INCLUDE_DIR" "${python}/include/${python.libPrefix}")
+      (lib.cmakeFeature "Python_NumPy_INCLUDE_DIR" "${numpy}/${python.sitePackages}/numpy/_core/include")
+    ]
+  )
   ++ lib.optionals cudaSupport [
     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_CUTLASS" "${cutlass-src}")
     (lib.cmakeFeature "onnxruntime_CUDNN_HOME" "${cudaPackages.cudnn}")
