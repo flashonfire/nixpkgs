@@ -56,46 +56,10 @@ let
       };
     }
   ];
-in
-pythonPackages.buildPythonApplication (finalAttrs: {
-  pname = "paperless-ngx";
-  version = "3.3.4";
-  pyproject = true;
 
-  src = fetchFromGitHub {
-    owner = "paperless-ngx";
-    repo = "paperless-ngx";
-    tag = "v${finalAttrs.version}";
-    hash = "sha256-KUDQ75CJc30Cjyx1UpKKzcN2erYv7gQ/q2H2wI4I6aY=";
-  };
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace-fail '"--numprocesses=auto",' "" \
-      --replace-fail '--maxprocesses=16' "--numprocesses=$NIX_BUILD_CORES"
-  '';
-
-  build-system = [ pythonPackages.setuptools ];
-
-  nativeBuildInputs = [
-    gettext
-    lndir
-  ];
-
-  pythonRelaxDeps = [
-    "django-allauth"
-    "python-ipware"
-    "redis"
-    "regex"
-    "turbohtml"
-    # requested by maintainer
-    "imap-tools"
-    "ocrmypdf"
-    "filelock"
-  ];
-
-  dependencies =
-    with pythonPackages;
+  pythonDependencies =
+    ps:
+    with ps;
     [
       azure-ai-documentintelligence
       babel
@@ -173,6 +137,53 @@ pythonPackages.buildPythonApplication (finalAttrs: {
     ++ tika-client.optional-dependencies.httpx
     ++ whoosh-compat.optional-dependencies.tantivy;
 
+  pythonBuildPackages = pythonPackages.python.pythonOnBuildForHost.pkgs.overrideScope (
+    lib.composeManyExtensions [
+      (_final: prev: { django = prev.django_5; })
+      extraPythonPackageOverrides
+    ]
+  );
+  buildPythonPath = pythonBuildPackages.makePythonPath (pythonDependencies pythonBuildPackages);
+in
+pythonPackages.buildPythonApplication (finalAttrs: {
+  pname = "paperless-ngx";
+  version = "3.3.4";
+  pyproject = true;
+
+  src = fetchFromGitHub {
+    owner = "paperless-ngx";
+    repo = "paperless-ngx";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-KUDQ75CJc30Cjyx1UpKKzcN2erYv7gQ/q2H2wI4I6aY=";
+  };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail '"--numprocesses=auto",' "" \
+      --replace-fail '--maxprocesses=16' "--numprocesses=$NIX_BUILD_CORES"
+  '';
+
+  build-system = [ pythonPackages.setuptools ];
+
+  nativeBuildInputs = [
+    gettext
+    lndir
+  ];
+
+  pythonRelaxDeps = [
+    "django-allauth"
+    "python-ipware"
+    "redis"
+    "regex"
+    "turbohtml"
+    # requested by maintainer
+    "imap-tools"
+    "ocrmypdf"
+    "filelock"
+  ];
+
+  dependencies = pythonDependencies pythonPackages;
+
   postBuild = ''
     # v3 rejects the default secret key at import, which the manage.py calls below hit.
     export PAPERLESS_SECRET_KEY=super-safe-secret-key
@@ -181,11 +192,17 @@ pythonPackages.buildPythonApplication (finalAttrs: {
     # for files in `python.sitePackages`
     ${pythonPackages.python.pythonOnBuildForHost.interpreter} -OO -m compileall src
 
+    # manage.py imports all dependencies, so run it against the build platform ones
+    manage() {
+      env -u _PYTHON_HOST_PLATFORM -u _PYTHON_SYSCONFIGDATA_NAME PYTHONPATH=${buildPythonPath} \
+        ${pythonPackages.python.pythonOnBuildForHost.interpreter} src/manage.py "$@"
+    }
+
     # Collect static files
-    ${pythonPackages.python.pythonOnBuildForHost.interpreter} src/manage.py collectstatic --clear --no-input
+    manage collectstatic --clear --no-input
 
     # Compile string translations using gettext
-    ${pythonPackages.python.pythonOnBuildForHost.interpreter} src/manage.py compilemessages
+    manage compilemessages
   '';
 
   installPhase =
