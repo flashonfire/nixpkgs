@@ -1,6 +1,6 @@
 {
   lib,
-  antlr4,
+  buildPackages,
   antlr4-python3-runtime,
   attrs,
   buildPythonPackage,
@@ -29,7 +29,7 @@ buildPythonPackage rec {
 
   patches = [
     (replaceVars ./antlr4.patch {
-      antlr_jar = "${antlr4.out}/share/java/antlr-${antlr4.version}-complete.jar";
+      antlr_jar = "${buildPackages.antlr4.out}/share/java/antlr-${buildPackages.antlr4.version}-complete.jar";
     })
 
     # https://github.com/omry/omegaconf/pull/1137
