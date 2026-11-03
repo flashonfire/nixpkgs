@@ -24,7 +24,10 @@ buildPythonPackage (finalAttrs: {
   nativeBuildInputs = [ cmake ];
   dontUseCmakeConfigure = true;
 
-  build-system = [ setuptools ];
+  build-system = [
+    cffi
+    setuptools
+  ];
 
   buildInputs = [ c-ares ];
 
@@ -32,8 +35,6 @@ buildPythonPackage (finalAttrs: {
     cffi
     idna
   ];
-
-  propagatedNativeBuildInputs = [ cffi ];
 
   # Requires network access
   doCheck = false;
