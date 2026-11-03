@@ -21,11 +21,8 @@ let
     maintainers
     mapAttrsToList
     ;
-  inherit (python3Packages)
-    build
-    python
-    scikit-build-core
-    ;
+  inherit (python3Packages) python;
+  pythonOnBuild = python.pythonOnBuildForHost;
 in
 stdenv.mkDerivation (finalAttrs: {
   __structuredAttrs = true;
@@ -44,6 +41,12 @@ stdenv.mkDerivation (finalAttrs: {
   postPatch = ''
     substituteInPlace pyproject.toml \
       --replace-fail "protobuf==6.31.1" "protobuf"
+
+    # nanobind reads the include path from Python_INCLUDE_DIRS
+    substituteInPlace CMakeLists.txt \
+      --replace-fail 'set(ONNX_PYTHON_INTERPRETER Python::Interpreter)' \
+        'set(ONNX_PYTHON_INTERPRETER Python::Interpreter)
+      set(Python_INCLUDE_DIRS ''${Python3_INCLUDE_DIRS})'
   '';
 
   outputs = [
@@ -52,12 +55,14 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   nativeBuildInputs = [
-    build
     cmake
     ninja
-    python
+    pythonOnBuild
+  ]
+  ++ (with pythonOnBuild.pkgs; [
+    build
     scikit-build-core
-  ];
+  ]);
 
   # NOTE: python3Packages.protobuf does not propagate a dependency on protobuf's dev output, so we must bring it in
   # for the CMake files.
@@ -93,7 +98,9 @@ stdenv.mkDerivation (finalAttrs: {
     nanobind_DIR = "${python3Packages.nanobind}/${python.sitePackages}/nanobind/cmake";
   };
 
-  cmakeFlags = mapAttrsToList cmakeFeature finalAttrs.env;
+  cmakeFlags = mapAttrsToList cmakeFeature finalAttrs.env ++ [
+    (cmakeFeature "Python3_INCLUDE_DIR" "${python}/include/${python.libPrefix}")
+  ];
 
   preConfigure = ''
     export MAX_JOBS=$NIX_BUILD_CORES
