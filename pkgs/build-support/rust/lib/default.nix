@@ -69,6 +69,10 @@
         "CXX_${stdenv.hostPlatform.rust.cargoEnvVarTarget}=${cxxForHost}" \
         "CARGO_TARGET_${stdenv.hostPlatform.rust.cargoEnvVarTarget}_LINKER=${ccForHost}" \
       ''
+      # Lets build scripts and proc-macros find libraries from depsBuildBuild
+      + lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+        ''${PKG_CONFIG_FOR_BUILD:+"HOST_PKG_CONFIG=$PKG_CONFIG_FOR_BUILD"} \
+      ''
       # Due to a bug in how splicing and pkgsTargetTarget works, in
       # situations where pkgsTargetTarget is irrelevant
       # pkgsTargetTarget.stdenv.cc is often simply wrong.  We must omit
