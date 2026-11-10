@@ -35,6 +35,11 @@ buildPgrxExtension (finalAttrs: {
     sqlite
   ];
 
+  depsBuildBuild = [
+    pkg-config
+    sqlite
+  ];
+
   patches =
     # pgrx_embed is built for the build platform
     lib.optionals
