@@ -31,6 +31,7 @@
   lib,
   buildPackages,
   pkg-config,
+  rust,
   rustPlatform,
   stdenv,
 }:
@@ -93,7 +94,7 @@ lib.extendMkDerivation {
     let
       isCross = stdenv.buildPlatform != stdenv.hostPlatform;
       # cargo-pgrx builds pgrx_embed for the build platform and looks for it outside of target/<triple>
-      crossEnv = lib.optionalString isCross "${buildPackages.rust.envVars.setEnv} env -u CARGO_BUILD_TARGET ";
+      crossEnv = lib.optionalString isCross "${rust.envVars.setEnv} env -u CARGO_BUILD_TARGET ";
       crossTarget = lib.optionalString isCross " --target ${stdenv.hostPlatform.rust.rustcTarget}";
 
       fakeRustfmt = buildPackages.writeShellScriptBin "rustfmt" ''
