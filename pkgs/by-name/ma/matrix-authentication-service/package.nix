@@ -67,7 +67,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
     aws-lc
   ];
 
-  depsBuildBuild = [ buildPackages.stdenv.cc ];
+  depsBuildBuild = [
+    buildPackages.stdenv.cc
+    pkg-config
+    aws-lc
+  ];
 
   env = {
     ZSTD_SYS_USE_PKG_CONFIG = true;
