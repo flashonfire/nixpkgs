@@ -37,6 +37,7 @@ buildPythonPackage rec {
   build-system = [
     meson-python
     cython
+    numpy
   ];
 
   buildInputs = [
