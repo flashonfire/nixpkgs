@@ -36,6 +36,7 @@
   mpi,
   buildDocs ? false,
   buildPackages,
+  pkgsHostTarget,
   targetPackages,
 
   # tests.cudaAvailable:
@@ -129,7 +130,7 @@ let
 
   # Compiler and build tool used at runtime by torch.compile and torch.utils.cpp_extension
   cxx = lib.getExe' targetPackages.stdenv.cc "${targetPackages.stdenv.cc.targetPrefix}c++";
-  ninjaExe = lib.getExe targetPackages.ninja;
+  ninjaExe = lib.getExe pkgsHostTarget.ninja;
 
   # https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/cpp_extension.py#L2569-L2572
   supportedTorchCudaCapabilities =
