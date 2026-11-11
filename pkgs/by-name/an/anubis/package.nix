@@ -40,6 +40,8 @@ buildGo127Module (finalAttrs: {
     hash = "sha256-T0lZQyAJLFKrR2kQ2i/WHN15APlEwQ3jBP1w/GUYmuA=";
   };
 
+  depsBuildBuild = [ pkgsBuildBuild.stdenv.cc ];
+
   nativeBuildInputs = [
     esbuild
     brotli
@@ -82,7 +84,7 @@ buildGo127Module (finalAttrs: {
     if [[ ! $name =~ go-modules ]]; then
       # https://github.com/TecharoHQ/anubis/blob/main/xess/build.sh
       npx postcss ./xess/xess.css -o xess/xess.min.css
-      CC= GOOS= GOARCH= go generate ./...
+      CC="$CC_FOR_BUILD" GOOS= GOARCH= go generate ./...
       ./wasm/scripts/build_wasm.sh
       ./wasm/scripts/build_wasm2js.sh
       ./web/build.sh
