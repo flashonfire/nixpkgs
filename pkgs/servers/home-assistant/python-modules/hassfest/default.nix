@@ -5,9 +5,11 @@
   # build-system
   setuptools,
 
+  # dependencies
+  ruff,
+
   # tests
   pytestCheckHook,
-  ruff,
 }:
 
 buildPythonPackage {
@@ -20,12 +22,11 @@ buildPythonPackage {
 
   build-system = [ setuptools ];
 
+  dependencies = [ ruff ];
+
   pythonImportsCheck = [ "hassfest" ];
 
-  nativeCheckInputs = [
-    pytestCheckHook
-    ruff
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
   meta = home-assistant.meta // {
     description = "Validate Home Asisstant integrations";
